@@ -1,0 +1,100 @@
+---
+title: "Lab02"
+format: pdf
+editor: visual
+---
+
+## 
+
+Davi Caldas de Godoi - 223555
+
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(remotes)
+library(ggcal)
+```
+
+**1. Estatísticas Suficientes**
+
+Temos duas estatísicas suficientes para a determinação do percentual global de vôos atrasados, são elas:
+
+- O número de vôos atrasados com 10 minutos ou mais (ARRIVAL_DELAY \> 10)
+
+- O número de vôos total que ocorreram dentro do grupo de análise.
+
+Ambas as estatísticas serão representadas como variáveis: "n_atraso" e "n_total" sequêncialmente.
+
+**2. Função getStats**
+
+```{r}
+getStats <- function(input, pos) {input %>%
+    filter(AIRLINE %in% c("AA", "DL", "UA", "US")) %>%
+    filter(!is.na(MONTH), !is.na(DAY), !is.na(ARRIVAL_DELAY)) %>%
+    group_by(MONTH, DAY, AIRLINE) %>%
+    summarise(
+      n_atrasados = sum(ARRIVAL_DELAY > 10),
+      n_total = n(), .groups = "drop")}
+```
+
+**3. ReadR e importação do CSV**
+
+```{r}
+col_types <- cols_only(
+  MONTH = col_integer(),
+  DAY = col_integer(),
+  AIRLINE = col_character(),
+  ARRIVAL_DELAY = col_double())
+
+estatisticas <- read_csv_chunked(
+  file = "flights.csv.zip",
+  callback = DataFrameCallback$new(getStats),
+  chunk_size = 100000,
+  col_types = col_types)
+```
+
+**4. Compute Stats**
+
+```{r}
+computeStats <- function(dataf) {
+  dataf %>% group_by(MONTH, DAY, AIRLINE) %>%
+    summarise(
+      total_atrasados = sum(n_atrasados),
+      total_voos = sum(n_total),
+      .groups = "drop") %>%
+    transmute(
+      Cia = AIRLINE,
+      Data = as.Date(paste(2015, MONTH, DAY, sep = "-")),
+      Perc = total_atrasados / total_voos)}
+
+estatisticas_finais <- computeStats(estatisticas)
+```
+
+**5. Mapa de Calor**
+
+```{r}
+pal <- scale_fill_gradient(
+  low = "#00BFFF",
+  high = "#B22222",
+  name = "Atraso em %")
+baseCalendario <- function(stats, cia) {
+  dados_cia <- stats %>%
+    filter(Cia == cia)
+  ggcal(dados_cia$Data, dados_cia$Perc)}
+
+cAA <- baseCalendario(estatisticas_finais, "AA")
+cDL <- baseCalendario(estatisticas_finais, "DL")
+cUA <- baseCalendario(estatisticas_finais, "UA")
+cUS <- baseCalendario(estatisticas_finais, "US")
+
+cAA + pal + ggtitle("Percentual de Atrasos em 2015 - AA")
+cDL + pal + ggtitle("Percentual de Atrasos em 2015 - DL")
+cUA + pal + ggtitle("Percentual de Atrasos em 2015 - UA")
+cUS + pal + ggtitle("Percentual de Atrasos em 2015 - US")
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
