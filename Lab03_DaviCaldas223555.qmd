@@ -1,0 +1,85 @@
+---
+title: "Lab03"
+format: pdf
+editor: visual
+---
+
+## 
+
+Davi Caldas de Godoi - 223555
+
+```{r}
+library(tidyverse)
+library(readr)
+library(leaflet)
+```
+
+**1. Importando os dados**
+
+```{r}
+airlines <- read_csv("airlines.csv")
+airports <- read_csv("airports.csv", col_select = c(IATA_CODE, CITY, STATE, LATITUDE, LONGITUDE))
+
+process_chunk <- function(chunk, pos) {chunk %>% 
+    filter(!str_starts(DESTINATION_AIRPORT, "1")) %>%
+    drop_na(DESTINATION_AIRPORT, ARRIVAL_DELAY) %>%
+    group_by(DESTINATION_AIRPORT) %>%
+    summarise(sum_atraso = sum(ARRIVAL_DELAY),n_voos = n(),
+    .groups = "drop")}
+
+stats_chunks <- read_csv_chunked("flights.csv",DataFrameCallback$new(process_chunk),
+  chunk_size = 1000000,
+  col_types = cols_only(
+    DESTINATION_AIRPORT = col_character(),
+    ARRIVAL_DELAY = col_double()))
+
+flights <- stats_chunks %>%
+  group_by(DESTINATION_AIRPORT) %>%
+  summarise(mean_delay = sum(sum_atraso) / sum(n_voos),
+    .groups = "drop")
+```
+
+**2. Juntando os dados (Joins)**
+
+a) - Chave na tabela flights: ``DESTINATION_AIRPORT``
+
+b) - Chave na tabela airports: ``IATA_CODE``
+
+c) - Aeroportos presentes em flights mas ausentes em airports:
+
+```{r}
+airports_faltando <- flights %>% anti_join(airports, by = c("DESTINATION_AIRPORT" = "IATA_CODE"))
+
+print(airports_faltando)
+```
+
+d, e) - Juntando as tabelas e atualizando o objeto flights:
+
+```{r}
+flights <- flights %>%
+  left_join(airports, by = c("DESTINATION_AIRPORT" = "IATA_CODE"))
+```
+
+**3. Aeroportos por estado**
+
+```{r}
+airports_por_estado <- airports %>%
+  count(STATE, name = "n_aeroportos", sort = TRUE)
+print(airports_por_estado)
+```
+
+**4. Visualizando o mapa**
+
+```{r}
+flights_map_data <- flights %>%
+  filter(!is.na(LATITUDE) & !is.na(LONGITUDE))
+this <- leaflet(flights_map_data) %>%
+  addTiles() %>%
+  addMarkers(
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    popup = ~paste0("<b>", DESTINATION_AIRPORT, "</b><br>Atraso médio: ", round(mean_delay, 2), " min"))
+
+this
+```
+
