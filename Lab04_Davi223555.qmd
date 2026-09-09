@@ -1,0 +1,87 @@
+---
+title: "Lab04_DaviCaldas223555"
+format: typst
+editor: visual
+---
+
+Davi Caldas de Godoi - 223555 - Lab04
+
+1)
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+2)
+```{r}
+fname <- "WDIEXCEL.xlsx"
+file.exists(fname)
+```
+
+3)
+```{r}
+countries <- read_excel(fname, sheet = "Country")
+```
+
+4)
+```{r}
+paises_selecionados <- c("BRA", "ARG", "CHL", "COL", "PER")
+
+countries <- countries %>% filter(`Country Code` %in% paises_selecionados)
+```
+
+5)
+```{r}
+WDI <- read_excel(fname, sheet = "Data")
+```
+
+6)
+```{r}
+WDI <- WDI %>% select(`Country Code`, `Indicator Code`, `1960`:`2018`)
+```
+
+7)
+```{r}
+WDI <- WDI %>%
+  pivot_longer(
+    cols = `1960`:`2018`,
+    names_to = "YEAR",
+    values_to = "value")
+```
+
+8)
+```{r}
+is.integer(WDI$YEAR)
+WDI <- WDI %>% mutate(YEAR = as.integer(YEAR))
+```
+
+9)
+```{r}
+WDI_final <- WDI %>%
+  filter(`Indicator Code` == "SP.DYN.CBRT.IN") %>%
+  inner_join(countries, by = "Country Code") %>%
+  rename(SP.DYN.CBRT.IN = value) %>%
+  select(`Country Code`, `Short Name`, YEAR, SP.DYN.CBRT.IN)
+```
+
+10)
+```{r}
+WDI_final <- WDI_final %>%
+  arrange(`Country Code`, YEAR)
+```
+
+11) Gráfico
+```{r}
+ggplot(WDI_final, aes(x = YEAR, y = SP.DYN.CBRT.IN, color = `Short Name`)) +
+  geom_line(linewidth = 1) +
+  labs(title = "Taxa Bruta de Natalidade (1960 - 2018)",
+    x = "Ano (YEAR)",
+    y = "SP.DYN.CBRT.IN",
+    color = "País") + theme_minimal()
+```
+
+
+
+
+
+
